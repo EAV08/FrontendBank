@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { comoApiError } from '../api/cliente'
-import { confirmarDeposito, prepararDeposito, retirar } from '../api/endpoints'
+import { confirmarDeposito, prepararDeposito, retirar, transferir } from '../api/endpoints'
 import type { ConfirmacionDepositoResponse } from '../api/tipos'
 import { useSesion } from '../auth/contexto'
 import { Alerta } from '../componentes/Alerta'
@@ -21,10 +21,11 @@ export function Operaciones() {
 
   return (
     <section>
-      <h1>Depósitos y retiros</h1>
+      <h1>Depósitos, retiros y transferencias</h1>
       <div className="dos-columnas">
         <Deposito token={token} alSaldo={recordarSaldo} />
         <Retiro token={token} alSaldo={recordarSaldo} />
+        <Transferencia token={token} idCliente={idCliente} alSaldo={recordarSaldo} />
       </div>
     </section>
   )
@@ -33,6 +34,10 @@ export function Operaciones() {
 interface Props {
   token: string
   alSaldo: (numeroCuenta: string, saldo: number) => void
+}
+
+interface PropsTransferencia extends Props {
+  idCliente: string
 }
 
 function Deposito({ token, alSaldo }: Props) {
@@ -148,6 +153,60 @@ function Retiro({ token, alSaldo }: Props) {
       <Campo etiqueta="Monto" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} required />
       <button type="submit" disabled={ocupado}>
         Retirar
+      </button>
+    </form>
+  )
+}
+
+function Transferencia({ token, idCliente, alSaldo }: PropsTransferencia) {
+  const [origen, setOrigen] = useState('')
+  const [destino, setDestino] = useState('')
+  const [monto, setMonto] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const [mensaje, setMensaje] = useState<Mensaje>(null)
+
+  async function enviar(e: FormEvent) {
+    e.preventDefault()
+    const valor = interpretarMonto(monto)
+    if (!valor) {
+      setMensaje({ tipo: 'error', texto: 'Ingrese un monto mayor que cero, con máximo dos decimales.' })
+      return
+    }
+    if (origen.trim() === destino.trim()) {
+      setMensaje({ tipo: 'error', texto: 'La cuenta destino debe ser diferente de la cuenta origen.' })
+      return
+    }
+    setOcupado(true)
+    setMensaje(null)
+    const cuentas = leerCuentas(idCliente)
+    try {
+      const r = await transferir(
+        { numeroCuentaOrigen: origen.trim(), numeroCuentaDestino: destino.trim(), monto: valor },
+        token,
+      )
+      alSaldo(r.numeroCuentaOrigen, r.saldoOrigen)
+      const destinoLocal = cuentas.find((cuenta) => cuenta.numeroCuenta === r.numeroCuentaDestino)
+      if (destinoLocal?.saldo !== undefined) {
+        alSaldo(r.numeroCuentaDestino, destinoLocal.saldo + r.monto)
+      }
+      setMensaje({ tipo: 'exito', texto: `${r.mensaje} Nuevo saldo de la cuenta origen: ${formatearMonto(r.saldoOrigen)}.` })
+      setMonto('')
+    } catch (causa) {
+      setMensaje({ tipo: 'error', texto: comoApiError(causa).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <form className="tarjeta" onSubmit={enviar} noValidate>
+      <h2>Transferir</h2>
+      {mensaje && <Alerta tipo={mensaje.tipo}>{mensaje.texto}</Alerta>}
+      <Campo etiqueta="Cuenta origen (propia)" value={origen} onChange={(e) => setOrigen(e.target.value)} maxLength={LIMITES.numeroCuenta} required />
+      <Campo etiqueta="Cuenta destino" value={destino} onChange={(e) => setDestino(e.target.value)} maxLength={LIMITES.numeroCuenta} required />
+      <Campo etiqueta="Monto" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} required />
+      <button type="submit" disabled={ocupado}>
+        Transferir
       </button>
     </form>
   )
