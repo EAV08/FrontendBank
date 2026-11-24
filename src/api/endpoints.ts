@@ -19,6 +19,8 @@ import type {
   RetiroRealizadoResponse,
   RetiroRequest,
   SaldoDisponibleResponse,
+  TransferenciaRequest,
+  TransferenciaResponse,
 } from './tipos'
 
 // ---- Clientes ----
@@ -72,4 +74,8 @@ export function confirmarDeposito(datos: DepositoRequest, token: string) {
 
 export function retirar(datos: RetiroRequest, token: string) {
   return solicitar<RetiroRealizadoResponse>('/cuentas/retiro', { cuerpo: datos, token })
+}
+
+export function transferir(datos: TransferenciaRequest, token: string) {
+  return solicitar<TransferenciaResponse>('/cuentas/transferencia', { cuerpo: datos, token })
 }

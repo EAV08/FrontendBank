@@ -140,3 +140,18 @@ export interface RetiroRealizadoResponse {
   saldo: number
   mensaje: string
 }
+
+export interface TransferenciaRequest {
+  numeroCuentaOrigen: string
+  numeroCuentaDestino: string
+  monto: number
+}
+
+export interface TransferenciaResponse {
+  idTransaccion: string
+  numeroCuentaOrigen: string
+  numeroCuentaDestino: string
+  monto: number
+  saldoOrigen: number
+  mensaje: string
+}
